@@ -1,0 +1,435 @@
+<!--
+
+  If you are reading this:
+
+  This code isn't very nice to look at :)
+
+  If there's something you see that you like, email us: who@tree.is
+  And we'll try to make it easier to understand!!!
+
+  Most of the shader code come from: https://www.shadertoy.com/view/ltlSRl
+  Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
+
+  by Adam27 : https://www.shadertoy.com/user/adam27
+
+-->
+
+<html>
+
+  <head>
+    <style>
+      body{ margin: 0px;  background:#000;}
+      html{ overflow: hidden }
+      h1{
+        color:#111;
+        position:absolute;
+        width:100%;
+        bottom:20%;
+        text-align: center;
+        font-family: "Trebuchet MS", Helvetica, sans-serif;
+      }
+      h1:hover{
+
+        text-decoration: underline;
+        color:#666;
+      }
+    </style>
+  </head>
+
+  <body>
+ 
+    <script src = "lib/three.min.js"                ></script>
+    <script src = "lib/jquery.min.js"               ></script>
+    <script src = "lib/ShaderLoader.js"             ></script>
+    <script src = "lib/stats.min.js"                ></script>
+
+    <script src = "lib/TrackballControls.js"        ></script>
+    <script src = "lib/MouseMoveControls.js"        ></script>
+    <script src = "lib/ObjectControls.js"           ></script>
+    
+
+    <script src = "lib/Link.js"           ></script>
+    <script src = "lib/underscore.js"     ></script>
+
+    <script src = "AudioController.js"              ></script>
+    <script src = "AudioBuffer.js"              ></script>
+    <script src = "BufferedAudio.js"            ></script>
+    <script src = "Grain.js"                    ></script>
+
+
+    <script src = "Tree.js" ></script>
+    <script src = "textStuff.js" ></script>
+
+
+
+
+    <script>
+
+    var frameSlow = 6;
+    var counter = 0;
+
+    var neededToLoad = 2;
+    var loaded = 0;
+
+    var FIRST_FRAME;
+
+    var moving = false;
+
+    var camera, renderer, scene , controls , clock;
+    
+    var audioMesh;
+
+    // Setting up shaders
+    var shaders = new ShaderLoader( 'shaders' );
+
+    shaders.shaderSetLoaded = function(){
+      onLoad();
+    }
+
+
+
+    shaders.load( 'vs-holo' , 'raytrace' , 'vertex'   );
+    shaders.load( 'fs-tree' , 'tree' , 'fragment' );
+
+    //shaders.load( 'fs-bg' , 'bg' , 'fragment' );
+
+
+    // Normals For the Material
+    var uniforms = {
+
+      dT:       { type:"f"  , value : 0             },
+      time:     { type:"f"  , value : 0             },
+      
+      t_audio : {type:"t" , value: null},
+      lightPosition: { type:"v3" , value : new THREE.Vector3() },
+
+      iModelMat:{ type:"m4" , value: new THREE.Matrix4() }
+
+
+    }
+
+
+    /*
+
+       Setting up Audio
+
+    */
+    var audio = new AudioController();
+
+    //var stream = new Stream( "held.mp3" , audio.ctx , audio.gain );
+
+   // var userAudio = new UserAudio( audio.ctx , audio.gain);
+
+    //audio.mute.gain.value = 0;
+
+    var audioBuffers = [];
+
+    var audioBuffer = new AudioBuffer( audio.ctx , "holyNoises.mp3" );
+
+    audioBuffer.addLoadEvent( function(){
+      onLoad();
+    });
+
+    audioBuffers.push( audioBuffer );
+
+    uniforms.t_audio.value = audio.texture
+
+
+
+
+
+
+    function init(){
+
+
+      grain = new Grain( audio , audioBuffers[0].buffer , audio.gain );
+
+      //textCreator = new TextCreator( 3 );
+
+
+      /*
+
+
+         Setting up THREE.js Scene
+
+
+      */
+
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+
+      camera = new THREE.PerspectiveCamera( 65 , w/h , .1 , 10000 );
+      camera.position.z = 15.5;
+      //camera.position.x = 3.5;
+
+      scene = new THREE.Scene();
+
+      var dpr = window.devicePixelRatio || 1;
+      renderer = new THREE.WebGLRenderer();
+      renderer.setPixelRatio( dpr );
+      renderer.setSize( window.innerWidth, window.innerHeight );
+
+      document.body.appendChild( renderer.domElement );
+
+
+      stats = new Stats();
+      stats.domElement.style.position = "absolute";
+      stats.domElement.style.left = "0px";
+      stats.domElement.style.bottom = "-30px";
+      stats.domElement.style.zIndex = "999";
+      //document.body.appendChild( stats.domElement );
+
+      window.addEventListener( 'resize', onWindowResize, false );
+      window.addEventListener( 'keydown', keydown, false );
+
+      clock = new THREE.Clock();
+
+
+      controls = new THREE.MouseMoveControls( camera );
+      //controls = new THREE.TrackballControls( camera );
+
+      objectControls = new ObjectControls( camera );
+
+
+      treeObj = new THREE.Object3D();
+
+
+      var treeMat = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: shaders.vs.raytrace,
+        fragmentShader: shaders.fs.tree
+      })
+
+     // treeMat = new THREE.MeshNormalMaterial();
+
+      var treeParams = {
+        material:               treeMat,
+        radius:                 1.5,
+        height:                 10,
+        sides:                  10,
+        numOf:                  20, 
+        randomness:             1.2,
+        slices:                 100,
+        lightPosition:          new THREE.Vector3(-1 , 8.1 , -1),
+        lightSize:              4,
+
+        startingChance:          20.,
+        chanceReducer:           .9,
+        randomnessReducer:       .95,
+        sliceReducer:            .7,
+        numOfReducer:            .6,
+        progressionPower:        2.2,
+        lengthReduction:         .5,
+        maxIterations:           3,
+        flattening:              .2,
+
+        maxVerts:      10000000
+      }
+
+
+      treeMesh = new Tree(treeParams)
+
+
+
+      //treeMesh.position.y = -5
+
+
+
+
+      ground = new THREE.Mesh( new THREE.PlaneGeometry( 100 , 100 , 100 , 100 ) , new THREE.MeshBasicMaterial({color:0x000000}) );
+      ground.rotation.x = -Math.PI/2;
+      ground.position.y = 1;
+      treeObj.add( ground );
+      treeObj.add( treeMesh );
+
+      treeObj.position.y = -8;
+      treeObj.position.x = 2;
+
+
+
+      scene.add( treeObj )
+
+
+
+      console.log( treeMesh.curves.length )
+      console.log( treeMesh.cleanCurves.length )
+      createBalls( treeMesh.cleanCurves )
+
+
+      var light = new THREE.Mesh( new THREE.IcosahedronGeometry( treeParams.lightSize , 3 ),new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity : 1.
+      }));
+      light.position.copy( treeParams.lightPosition )
+
+      uniforms.lightPosition.value.copy( light.position );
+      treeObj.add( light );
+
+      //grain.hold()
+
+
+    }
+
+  
+    
+    function animate(){
+
+      requestAnimationFrame( animate );
+
+      counter ++;
+
+      //if( counter == frameSlow ){
+        counter = 0;
+        renderer.render( scene , camera );
+      //}
+     
+      stats.update();
+      uniforms.dT.value = clock.getDelta();
+      uniforms.time.value += uniforms.dT.value;
+
+      uniforms.lightPosition.value.set( 1 , 1 , 1  );
+
+      treeMesh.updateMatrixWorld();
+      uniforms.iModelMat.value.getInverse( treeMesh.matrixWorld );
+
+      audio.update();
+
+
+      controls.update();
+      objectControls.update();
+
+      if( !FIRST_FRAME ){
+        //tree.hoverOut();
+        FIRST_FRAME = true;
+      }
+
+
+    }
+
+    function keydown( e ) {
+      //console.log( e )
+      if( e.keyCode == 82 )
+        renderer.render( scene , camera );
+
+      console.log( e.keyCode )
+
+      if( e.keyCode == 49 ){ uniforms.parameter1.value  += .1 }
+      if( e.keyCode == 81 ){ uniforms.parameter1.value  -= .1 }
+
+      if( e.keyCode == 50 ){ uniforms.parameter2.value  += .1 }
+      if( e.keyCode == 87 ){ uniforms.parameter2.value  -= .1 }
+
+      if( e.keyCode == 51 ){ uniforms.parameter3.value  += .1 }
+      if( e.keyCode == 69 ){ uniforms.parameter3.value  -= .1 }
+
+      if( e.keyCode == 52 ){ uniforms.parameter4.value  += .1 }
+      if( e.keyCode == 82 ){ uniforms.parameter4.value  -= .1 }
+
+      if( e.keyCode == 53 ){ uniforms.parameter5.value  += .1 }
+      if( e.keyCode == 84 ){ uniforms.parameter5.value  -= .1 }
+
+      if( e.keyCode == 54 ){ uniforms.parameter6.value  += .1 }
+      if( e.keyCode == 89 ){ uniforms.parameter6.value  -= .1 }
+
+      if( e.keyCode == 32 ){ toggleMovement(); }
+
+    }
+
+    function toggleMovement(){
+
+      moving = !moving;
+
+    }
+
+
+    function onWindowResize() {
+
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+			renderer.setSize( window.innerWidth, window.innerHeight );
+
+		}
+
+
+    function createBalls( curves ){
+
+      var ball = new THREE.Mesh( new THREE.IcosahedronGeometry(.3 , 2 ), new THREE.MeshBasicMaterial())
+
+      //var ball = new THREE.Mesh( new THREE.IcosahedronGeometry(.3 , 1 ), new THREE.MeshBasicMaterial())
+
+      var p = new THREE.Vector3( 0 , 1.6 , 0 );
+      var up = new THREE.Vector3( 0 , 1 , 0 );
+
+      var p1 = new THREE.Vector3();
+      var p2 = new THREE.Vector3();
+
+      var notToClose = 0
+      for( var i = 0; i < curves.length - 2; i++ ){
+        var c = curves[i][1];
+
+        for( var j = 0; j < (c.length-1) * .7; j++ ){
+          notToClose ++
+
+          var r = Math.random();
+
+          r *= (j / c.length);
+
+          p1.copy( c[j]) ;
+          p2.copy( c[j+1]);
+
+          p1.sub( p2 );
+          p1.normalize();
+
+          var v = p1.dot( up );
+
+
+
+          if( Math.abs(v) < .1  && r > .5  && notToClose > 5){
+
+              var b = ball.clone();
+              b.position.copy( c[j] )
+              b.position.sub( p );
+              notToClose = 0;
+
+              b.audioParams = {
+
+                baseOffset: Math.random() * .8,
+                attack    : .140 * 4.,
+                release   : .140 * 10.3,
+                trans     : .3// + Math.random() * .5
+
+              }
+
+              b.hoverOver = function(){
+
+                console.log('whas')
+                console.log( this.audioParams )
+
+                grain.playNote( this.audioParams );
+
+              }
+              treeObj.add( b );
+              objectControls.add( b );
+
+          }
+
+        }
+
+      }
+
+
+    }
+
+    function onLoad(){
+      loaded ++;
+      if( loaded == neededToLoad ){ init(); animate(); }
+
+    }
+
+
+
+    </script>
+
+  </body>
+</html>
