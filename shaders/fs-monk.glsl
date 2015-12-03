@@ -2,6 +2,7 @@ uniform float time;
 uniform sampler2D t_audio;
 
 uniform samplerCube cubeMap;
+uniform float uHovered;
 
 varying vec3 vPos;
 varying vec3 vCam;
@@ -372,11 +373,11 @@ void main(){
     col = norm * .5 + .5;
     col *= 1. - fr;
 
-    if( res.y > 1. ){
+    if( res.y > .9 - uHovered ){
 
       //float fr = max( 0. , dot( norm , -rd ) );
       vec3 aCol = texture2D( t_audio , vec2(fr,0. )).xyz;
-      col = mix( col , aCol , res.y - 1. );
+      col = mix( col , aCol , max( 0. , res.y - 1. + uHovered) );
 
     }
 

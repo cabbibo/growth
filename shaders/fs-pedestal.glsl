@@ -3,6 +3,8 @@ uniform sampler2D t_audio;
 
 uniform samplerCube cubeMap;
 
+uniform vec3 uDimensions;
+
 uniform float uHovered;
 uniform float uPower;
 
@@ -17,10 +19,10 @@ varying vec2 vUv;
 
 
 
-const float MAX_TRACE_DISTANCE = 10.;           // max trace distance
-const float INTERSECTION_PRECISION = 0.01;        // precision of the intersection
+const float MAX_TRACE_DISTANCE = 30.;           // max trace distance
+const float INTERSECTION_PRECISION = 0.001;        // precision of the intersection
 const int NUM_OF_TRACE_STEPS = 20;
-
+const float PI = 3.14159;
 
 
 
@@ -65,11 +67,6 @@ vec3 iqSpaceBend( vec3 p , float size , float amount )
 }
 
 
-float sdCappedCylinder( vec3 p, vec2 h )
-{
-  vec2 d = abs(vec2(length(p.xz),p.y)) - h;
-  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
-}
 
 
 vec2 smoothU( vec2 d1, vec2 d2, float k)
@@ -83,6 +80,13 @@ vec2 smoothU( vec2 d1, vec2 d2, float k)
 float sdSphere( vec3 p, float s )
 {
   return length(p)-s;
+}
+
+float sdBox( vec3 p, vec3 b )
+{
+  vec3 d = abs(p) - b;
+  return min(max(d.x,max(d.y,d.z)),0.0) +
+         length(max(d,0.0));
 }
 
 float opRepSphere( vec3 p, vec3 c , float r)
@@ -127,14 +131,111 @@ float fNoise( vec3 p ){
 }
 
 
+// ROTATION FUNCTIONS TAKEN FROM
+//https://www.shadertoy.com/view/XsSSzG
+vec3 xrotate(vec3 pos , float t) {
+  return mat3(1.0, 0.0, 0.0,
+                0.0, cos(t), -sin(t),
+                0.0, sin(t), cos(t)) * pos;
+}
+
+vec3 yrotate(vec3 pos , float t) {
+  return mat3(cos(t), 0.0, -sin(t),
+                0.0, 1.0, 0.0,
+                sin(t), 0.0, cos(t)) * pos;
+}
+
+
+float opS( float d1, float d2 )
+{
+    return max(-d1,d2);
+}
 
 vec2 opS( vec2 d1, vec2 d2 )
 {
     return  -d1.x > d2.x  ? vec2(-d1.x , d1.y) : d2 ;
 }
+
 vec2 opU( vec2 d1, vec2 d2 )
 {
     return  d1.x < d2.x ? d1 : d2 ;
+}
+
+float sdPlane( vec3 p, vec4 n )
+{
+  // n must be normalized
+  return dot(p,n.xyz) + n.w;
+}
+
+float sdCone( vec3 p, vec2 c )
+{
+    // c must be normalized
+    float q = length(p.xy);
+    return dot(c,vec2(q,p.z));
+}
+
+float sdCappedCone( in vec3 p, in vec3 c )
+{
+    vec2 q = vec2( length(p.xz), p.y );
+    vec2 v = vec2( c.z*c.y/c.x, -c.z );
+    vec2 w = v - q;
+    vec2 vv = vec2( dot(v,v), v.x*v.x );
+    vec2 qv = vec2( dot(v,w), v.x*w.x );
+    vec2 d = max(qv,0.0)*qv/vv;
+    return sqrt( dot(w,w) - max(d.x,d.y) )* sign(max(q.y*v.x-q.x*v.y,w.y));
+}
+
+
+
+float cBase( vec3 pos ){
+
+  float c = sdCone( pos , normalize(vec2( 1. , 1. )));
+  float s = sdPlane( pos , vec4( 0 , 0. , 1. , 1.4 ) );
+
+  return opS( s , c );
+
+
+}
+
+float sdCappedCylinder( vec3 p, vec2 h )
+{
+  vec2 d = abs(vec2(length(p.xz),p.y)) - h;
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+// give a base ID to pass out of
+// first build the fields
+// than connnect to ID numbers, using  by passing through baseID
+// write out baseID for later use.
+vec2 body( vec3 pos , out float baseID ){
+
+  vec3 c = vec3( 2.4 , 2.4 , 2.4 );
+  vec3 q = pos;//mod(pos,c)-0.5*c;
+
+  float n = abs( noise( q * 1. + vec3( 0. , time * .2 , 0.) ));
+
+  vec2 h , he;
+
+ /* h = vec2( sdBox( pos , uDimensions * .4 ) - n * (.2 + .3 * uID ), 1. );
+  he = vec2( sdSphere( pos - vec3( 0., uDimensions.y / 2. - 1.2 , 0.) , uDimensions.x / 2.4 ),2.);
+  h = opS( he , h );*/
+
+
+
+  vec3 bent = iqSpaceBend( pos - vec3( 2. , 0. ,0.) , .1 , 1. * abs(pos.y)  );
+  he = vec2( sdSphere( pos - vec3( -6. , 0. ,0.) , 2.5) , 2. );
+  h = vec2( sdCappedCylinder( bent , vec2( 3.4 , 2.4 )  ) - .2 * abs(min(0.,pos.y)) * (1.5 + sin( 1.4 * time * (uPower * .1 + 1.) + pos.y ))  , 1. );
+  h = smoothU( h ,  he , 6.5 );
+
+  he = vec2( sdPlane( pos , vec4( 0. , 1. , 0. , 3. ) ) + n * 1.4 , 3.);
+  h = smoothU( h , he  , .5 );
+
+  he = vec2( sdPlane( pos , vec4( 0. , -1. , 0. , .8 ) ) , 4.);
+  h = opS( he , h );
+
+  //h = vec2( opRepSphere( pos , c , .6 ) , 1. );
+  return h;
+
 }
 
 
@@ -146,7 +247,9 @@ vec2 map( vec3 pos ){
     vec2 res;
 
 
-    vec2 outer = vec2( -sdSphere( pos , 4. + INTERSECTION_PRECISION * 4. ) , 0.);
+  //  vec2 outer = vec2( -sdSphere( pos , 4. + INTERSECTION_PRECISION * 4. ) , 0.);
+
+
 
   //  vec3 q1 = iqSpaceBend( pos , .1 + sin( time * .2 ) * .1, .4+  sin( time * .1 ) * .1  );
   //  vec3 q2 = iqSpaceBend( pos , .2 + sin( time * .5 ) * .3, .2 + sin( time * .3 ) * .1  );
@@ -154,21 +257,24 @@ vec2 map( vec3 pos ){
   //  vec2 center=  vec2( sdSphere( q , .4 ) , 2.);
 
 
-   float n = abs( noise( pos * (1. + uPower) + vec3( time , time , time ) * .1 ));
+  // float n = abs( noise( pos + vec3( time , time , time ) * .1 ));
 
-  vec2 center = vec2(  sdSphere( pos , .5 ) - n * 2. , 1.);
+   // vec2 center = vec2(  sdSphere( pos , .4 ) , 1.);
+
+
+    float ID = 0.;
+
+
+
+    vec2 b = body( pos , ID );
+
+
+
 
    //vec2 center = vec2( opRepSphere( pos , vec3( 1.5 ) , .3) , 2.);
 
 
-    res = smoothU( outer , center , .5);
-
-/*    vec2 lEye = vec2( sdSphere( pos - vec3( 0.8 , 0., 1.) , .7 ) , 1. );
-    vec2 rEye = vec2( sdSphere( pos - vec3( -0.8 , 0., 1.) , .7 ) , 1. );
-
-    vec2 eye = opU( lEye , rEye );
-
-    res = opS( lEye , res );*/
+    res = b;//smoothU( outer , center , .5 );
 
     return res;
     
@@ -181,7 +287,7 @@ vec2 map( vec3 pos ){
 // remapping the function, and getting normal for that
 vec3 calcNormal( in vec3 pos ){
     
-  vec3 eps = vec3( 0.001, 0.0, 0.0 );
+  vec3 eps = vec3( 0.0001, 0.0, 0.0 );
   vec3 nor = vec3(
       map(pos+eps.xyy).x - map(pos-eps.xyy).x,
       map(pos+eps.yxy).x - map(pos-eps.yxy).x,
@@ -212,7 +318,7 @@ vec2 calcIntersection( in vec3 ro, in vec3 rd ){
     
     float h =  INTERSECTION_PRECISION*2.0;
     float t = 0.0;
-  float res = -1.0;
+    float res = -1.0;
     float id = -1.;
     
     for( int i=0; i< NUM_OF_TRACE_STEPS ; i++ ){
@@ -240,18 +346,10 @@ void main(){
 
   vec3 lightDir = normalize( vLight - ro);
 
+
+  float fr = max( 0. , dot( vNorm , -rd ) );
+
   float ior = .9;
-
-
-  vec3 rayR = refract( rd , vNorm , ior - .002 );
-  vec3 rayG = refract( rd , vNorm , ior        );
-  vec3 rayB = refract( rd , vNorm , ior + .002 );
-
-
-  vec2 resR = calcIntersection( ro , rayR );
-  vec2 resG = calcIntersection( ro , rayG );
-  vec2 resB = calcIntersection( ro , rayB );
-
 
 
 
@@ -265,94 +363,55 @@ void main(){
   float lamb = max( dot( vNorm , lightDir), 0.);
   float spec = max( dot( reflDir , rd ), 0.);
 
-  vec3 col = vec3( 0. );
+  spec = pow( spec , 10. );
+  vec3 col = vec3( 0.);//texture2D( t_audio , vec2( vUv.y , 0. )).xyz;// * vec3( 1. - spec );
 
-  vec4 t =  textureCube( cubeMap , normalize(reflDir) ) ;
-  col = t.xyz * t.w * .2;
-
+  col +=vec3( spec );
   vec2 res = calcIntersection( ro , rd );
 
+  if( res.y > -.5 ){
 
-  float r = 0. , g= 0. , b = 0.;
-   vec3 ray;
-  if( resR.y > -.5 ){
+    vec3 pos = ro + rd  * res.x;
+    vec3 norm = calcNormal( pos );
+  
+    lightDir = normalize( vec3( 1., 2. , 0.) - pos);
+    lamb = max( dot( norm , -lightDir ), 0.);
+
+    float fr = max( 0. , dot( norm , -rd ) );
+    //col += norm * .5 + .5;
+    //col *= 1. - fr;
+    //col *= lamb;
+
+    col += (1.-fr) * (norm * .5 + .5);
+
+      if( res.y >= 2. - uHovered ){
+        vec3 aCol =vec3(1.- fr );// texture2D( t_audio , vec2(fr,0. )).xyz;
+        col = mix( col , aCol, (res.y - 2.) );
+      }
+      //float fr = max( 0. , dot( norm , -rd ) );
+      //vec3 aCol = texture2D( t_audio , vec2(fr,0. )).xyz;
+      //col = mix( col , aCol , res.y - 1. );
+
+      //col = mix( vec3( lamb  )  , col , lamb );
+
+ 
+   // col  = vec3( lamb );
+
+  }else{
 
 
-    vec3 pos = ro + rayR * resR.x;
-    vec3 nor = calcNormal( pos );
 
-    r = max( 0. , dot( -rayR , nor ));
-    r = texture2D( t_audio , vec2( r , 0.) ).x;
 
-    if( resR.y == 0. ){
-      ray = refract( rayR , nor , ior );
-    }else{
-      ray = reflect( rayR , nor );
+    if( false ){//abs( vUv.x - .5 ) > .49 || abs( vUv.y - .5 ) > .49 ){
+
+    }else{//discard;
     }
-
-    r += textureCube( cubeMap , normalize(ray) ).x;
-
-    //}
-
   }
-
-  vec3 fNorm, fPos;
-  float fFr;
-
-  if( resG.y > -.5 ){
-
-
-    vec3 pos = ro + rayG * resG.x;
-    vec3 nor = calcNormal( pos );
-    fNorm = nor;
-    fPos = pos;
-
-    g = max( 0. , dot( -rayG , nor ));
-    fFr = g;
-    g = texture2D( t_audio , vec2( g , 0.) ).y;
-
-    
-    if( resG.y == 0. ){
-      ray = refract( rayG , nor , ior );
-    }else{
-      ray = reflect( rayG , nor );
-    }
-
-    g += textureCube( cubeMap , normalize(ray) ).y;
-
+  if(  vUv.y - .5 > .45  ){
+    col =  vec3( lamb );
   }
 
 
-
-  if( resB.y > -.5 ){
-
-
-    vec3 pos = ro + rayB * resB.x;
-    vec3 nor = calcNormal( pos );
-
-    b = max( 0. , dot( -rayB , nor ));
-
-    b = texture2D( t_audio , vec2( b , 0.) ).z;
-
-    if( resB.y == 0. ){
-      ray = refract( rayB , nor , ior );
-    }else{
-      ray = reflect( rayB , nor );
-    }
-
-    b += textureCube( cubeMap , normalize(ray) ).z;
-
-
-  }
-
-
-  col += vec3( r , g , b );
-
-  if( uHovered == 1. ){
-    //float fr = max( 0. , dot( -rd , fNorm));
-    col += (fNorm * .5 +.5 ) * (1.-fFr);
-
-  }
 
  // col = vec3( 1. )
   //col = textureCube( cubeMap , reflDir ).xyz;
@@ -361,7 +420,3 @@ void main(){
 
 
 }
-
-
-
-

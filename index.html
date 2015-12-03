@@ -2,15 +2,15 @@
 
   If you are reading this:
 
-  This code isn't very nice to look at :)
+  This was written in 48 hours, the code is atrocious.
 
   If there's something you see that you like, email us: who@tree.is
   And we'll try to make it easier to understand!!!
 
-  Most of the shader code come from: https://www.shadertoy.com/view/ltlSRl
-  Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
+  Also, please follow us on twitter:
 
-  by Adam27 : https://www.shadertoy.com/user/adam27
+  @vrtree , @lukexi , @cabbibo
+
 
 -->
 
@@ -20,37 +20,8 @@
     <style>
       body{ margin: 0px;  background:#000;}
       html{ overflow: hidden }
-      h1{
-        color:#f00;
-        //position:absolute;
-        //width:100%;
-        top:20%;
-        text-align: center;
-        font-family: "Trebuchet MS", Helvetica, sans-serif;
-      }
-      h1:hover{
 
-        text-decoration: underline;
-        color:#666;
-      }
 
-      #renderer{
-       /// border-top: 1px solid white;
-        //border-bottom: 1px solid white;
-
-        //left:0%;
-        //top:10%;
-        position:absolute;
-        top:0px;
-        z-index: -999;
-      }
-
-      #text{
-        position:absolute;
-        bottom:0px;
-        width:100%;
-        color:#f00;
-      }
     </style>
   </head>
 
@@ -73,14 +44,25 @@
     <script src = "lib/Link.js"           ></script>
     <script src = "lib/underscore.js"     ></script>
 
-    <script src = "AudioController.js"              ></script>
+
+
+    <script src = "PhysicsRenderer.js"          ></script>
+
+
+    <script src = "AudioController.js"          ></script>
     <script src = "AudioBuffer.js"              ></script>
     <script src = "BufferedAudio.js"            ></script>
     <script src = "Grain.js"                    ></script>
 
 
     <script src = "Tree.js" ></script>
+
+
+    <!-- moving extra functions out, for clutter sake -->
+    <script src = "keydown.js"              ></script>
     <script src = "textStuff.js" ></script>
+    <script src = "makeThings.js" ></script>
+    <script src = "makeSnowflakes.js" ></script>
 
 
 
@@ -101,6 +83,16 @@
     
     var audioMesh;
 
+    var dissipationFactor = .9;
+
+    /*
+
+  
+        SHADRES SHADRES SHADRES SHADRES SHADRES SHADRES 
+
+
+    */
+
     // Setting up shaders
     var shaders = new ShaderLoader( 'shaders' );
 
@@ -109,10 +101,8 @@
     }
 
 
-
     shaders.load( 'vs-holo' , 'raytrace' , 'vertex'   );
     shaders.load( 'vs-uv' , 'basic' , 'vertex'   );
-
 
     shaders.load( 'fs-tree' , 'tree' , 'fragment' );
     shaders.load( 'fs-noglo' , 'noglo' , 'fragment' );
@@ -121,6 +111,13 @@
     shaders.load( 'fs-sky' , 'sky' , 'fragment'   );
     shaders.load( 'fs-spirit' , 'spirit' , 'fragment'   );
     shaders.load( 'fs-floor' , 'floor' , 'fragment'   );
+    shaders.load( 'fs-pedestal' , 'pedestal' , 'fragment'   );
+
+
+    // SNOFLAX
+    shaders.load( 'ss-sdf'    , 'sim'    , 'simulation' );
+    shaders.load( 'fs-splat'  , 'splat' , 'fragment'   );
+    shaders.load( 'vs-splat'  , 'splat' , 'vertex'   );
 
     //shaders.load( 'fs-bg' , 'bg' , 'fragment' );
 
@@ -138,20 +135,24 @@
       iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
       lookPosition:  { type:"v3" , value : lookPosition },
 
+      uPower : {type:"f", value :0}
+
 
     }
 
 
+
+
+
     /*
 
-       Setting up Audio
+  
+        AUDIO AUDIO AUDIO AUDIO AUDIO AUDIO 
+
 
     */
+
     var audio = new AudioController();
-
-    //var stream = new Stream( "held.mp3" , audio.ctx , audio.gain );
-
-   // var userAudio = new UserAudio( audio.ctx , audio.gain);
 
     //audio.mute.gain.value = 0;
 
@@ -172,13 +173,19 @@
 
 
 
+
+
+
+    /*
+
+      INIT INIT INIT INIT INIT INIT INIT INIT INIT INIT 
+
+    */
+
     function init(){
 
 
       grain = new Grain( audio , audioBuffers[0].buffer , audio.gain );
-
-      //textCreator = new TextCreator( 3 );
-
 
       /*
 
@@ -192,7 +199,7 @@
       var h = window.innerHeight;
 
       camera = new THREE.PerspectiveCamera( 65 , w/h , .1 , 10000 );
-      camera.position.z = 30.5;
+      camera.position.z = 35.5;
       //camera.position.x = 3.5;
 
       scene = new THREE.Scene();
@@ -225,6 +232,14 @@
       objectControls = new ObjectControls( camera );
 
 
+
+
+
+      /*
+
+        CREATING SCENE
+
+      */
       treeObj = new THREE.Object3D();
 
 
@@ -236,10 +251,11 @@
 
      // treeMat = new THREE.MeshNormalMaterial();
 
+     var rSeed = Math.random();
       var treeParams = {
         material:               treeMat,
         radius:                 1.5,
-        height:                 9,
+        height:                 6 + rSeed * 4,
         sides:                  10,
         numOf:                  20, 
         randomness:             1.4,
@@ -249,11 +265,11 @@
 
         startingChance:          20.,
         chanceReducer:           .9,
-        randomnessReducer:       .98,
+        randomnessReducer:       .9,
         sliceReducer:            .7,
         numOfReducer:            .6,
         progressionPower:        2.2,
-        lengthReduction:         .7,
+        lengthReduction:         .4 + .5 - rSeed * .5,
         maxIterations:           3,
         flattening:              1.,
 
@@ -263,120 +279,40 @@
 
 
       treeMesh = new Tree( treeParams )
+      ground = makeGround( treeParams );
+      light = makeLight( treeParams );
+      pedestal = makePedestal( treeParams );
 
 
-
-      //treeMesh.position.y = -5
-
-
-
-      var mat = new THREE.ShaderMaterial({
-        uniforms : {
-
-      
-          t_audio : uniforms.t_audio,
-          dT : uniforms.dT,
-          time : uniforms.time,
-          lightPosition : uniforms.lightPosition,
-          //max( dot( vNorm , lightDir), 0.);
-          iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
-      
-        },
-        vertexShader: shaders.vs.basic,
-        fragmentShader: shaders.fs.floor,
-       // side: THREE.BackSide
-       shading: THREE.FlatShading
-      });
+      var l = new THREE.PointLight( 0xffffff, .5, 40);
+      l.position.copy( light.position );
 
 
-      ground = new THREE.Mesh( new THREE.PlaneBufferGeometry( 100 , 100 , 160 , 160 ) , mat );
-      ground.rotation.x = -Math.PI/2;
-      ground.position.y = 1;
+      snowflakes = makeSnowflakes(256);
 
-
-      objectControls.add( ground );
-
-
-
-
-
+      treeObj.add( l );
       treeObj.add( ground );
       treeObj.add( treeMesh );
+      treeObj.add( light );
+      treeObj.add( pedestal );
+      treeObj.add( snowflakes.body );
 
       treeObj.position.y = -10;
-      treeObj.position.x = 2;
+      treeObj.position.x = 0;
       //treeObj.position.z = -3;
-
 
 
       scene.add( treeObj )
 
 
 
-     
-
-
-      var lightMat = new THREE.ShaderMaterial({
-        uniforms:{
-          t_audio: uniforms.t_audio,
-          time: uniforms.time,
-          dT: uniforms.dT,
-          lightPosition: uniforms.lightPosition,
-          iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
-          cubeMap : {type:"t" , value:null},
-        },
-        vertexShader: shaders.vs.raytrace,
-        fragmentShader: shaders.fs.noglo,
-        transparent: true,
-        //opacity: 1.,
-
-      })
-
-      light = new THREE.Mesh( new THREE.IcosahedronGeometry( treeParams.lightSize * .8 , 4 ), lightMat );
-      light.position.copy( treeParams.lightPosition )
-
-
-   
-      light.select = function(){
-
-
-        var audioParams =  {
-
-          baseOffset: Math.random() * .83,
-          attack    : .140 * 30.,
-          release   : .140 * 80.3,
-          trans     : .6// + Math.random() * .5
-
-        }
-
-
-          grain.playNote( audioParams );
-
-      }
-
-      objectControls.add(light );
-
-      uniforms.lightPosition.value.copy( light.position );
-      treeObj.add( light );
-
-      var l = new THREE.PointLight( 0xffffff, .5, 40);
-      l.position.copy( light.position );
-
-      treeObj.add( l );
-
-      //grain.hold()
-
-
-      cubeCamera = new THREE.CubeCamera(  treeParams.lightSize / 1.3, 100, 1024  ); // parameters: near, far, resolution
+      cubeCamera = new THREE.CubeCamera(  treeParams.lightSize / 1.3, 100, 1024  ); 
       cubeCamera.renderTarget.minFilter = THREE.LinearMipMapLinearFilter; // mipmap filter
       cubeCamera.position.copy( light.position );
-      //cubeCamera.position.add( treeObj.position );
       treeObj.add( cubeCamera );
 
 
 
-      console.log( treeMesh.curves.length )
-      console.log( treeMesh.cleanCurves.length )
       balls = createBalls( treeMesh.cleanCurves )
 
 
@@ -398,8 +334,6 @@
 
 
 
-
-
     }
 
   
@@ -413,12 +347,16 @@
       stats.update();
       audio.update();
 
+
+
       uniforms.dT.value = clock.getDelta();
       uniforms.time.value += uniforms.dT.value;
 
-      lookPosition.x = Math.sin( uniforms.time.value );
-      lookPosition.y = Math.sin( uniforms.time.value );
-      lookPosition.z = Math.sin( uniforms.time.value );
+      snowflakes.soul.update();
+
+
+
+      treeObj.rotation.y += uniforms.dT.value * .5 * uniforms.uPower.value;
 
       ///uniforms.lightPosition.value.set( 1 , 1 , 1  );
 
@@ -432,6 +370,8 @@
       ground.updateMatrixWorld();
       ground.material.uniforms.iModelMat.value.getInverse( ground.matrixWorld );
 
+      pedestal.updateMatrixWorld();
+      pedestal.material.uniforms.iModelMat.value.getInverse( pedestal.matrixWorld );
       var v1 = light.position.clone();
 
       //console.log( v1  );
@@ -453,15 +393,20 @@
         balls[i].position.y  += Math.sin( uniforms.time.value * (20 + i) * .1 + i ) * .005;
 
         balls[i].scale.y = audio.audioData[i*4] * .2 + 1.
-        balls[i].scale.x = audio.audioData[i*4] * .2 + 1.
-        balls[i].scale.z = audio.audioData[i*4] * .2 + 1.
+        balls[i].scale.x = audio.audioData[i*4+1] * .2 + 1.
+        balls[i].scale.z = audio.audioData[i*4+1] * .2 + 1.
+
       }
 
    
 
+      uniforms.uPower.value *= dissipationFactor;
+
+     // if( uniforms.uPower.value < 0. ) uniforms.uPower.value = 0.;
+
       //treeObj.rotation.y += uniforms.dT.value;
 
-      controls.update();
+      //controls.update();
       objectControls.update();
 
       if( !FIRST_FRAME ){
@@ -485,42 +430,6 @@
 
     }
 
-    function keydown( e ) {
-      //console.log( e )
-      if( e.keyCode == 82 )
-        renderer.render( scene , camera );
-
-      console.log( e.keyCode )
-
-      if( e.keyCode == 49 ){ uniforms.parameter1.value  += .1 }
-      if( e.keyCode == 81 ){ uniforms.parameter1.value  -= .1 }
-
-      if( e.keyCode == 50 ){ uniforms.parameter2.value  += .1 }
-      if( e.keyCode == 87 ){ uniforms.parameter2.value  -= .1 }
-
-      if( e.keyCode == 51 ){ uniforms.parameter3.value  += .1 }
-      if( e.keyCode == 69 ){ uniforms.parameter3.value  -= .1 }
-
-      if( e.keyCode == 52 ){ uniforms.parameter4.value  += .1 }
-      if( e.keyCode == 82 ){ uniforms.parameter4.value  -= .1 }
-
-      if( e.keyCode == 53 ){ uniforms.parameter5.value  += .1 }
-      if( e.keyCode == 84 ){ uniforms.parameter5.value  -= .1 }
-
-      if( e.keyCode == 54 ){ uniforms.parameter6.value  += .1 }
-      if( e.keyCode == 89 ){ uniforms.parameter6.value  -= .1 }
-
-      if( e.keyCode == 32 ){ toggleMovement(); }
-
-    }
-
-    function toggleMovement(){
-
-      moving = !moving;
-
-    }
-
-
     function onWindowResize() {
 
 			camera.aspect = window.innerWidth / window.innerHeight;
@@ -531,194 +440,12 @@
 		}
 
 
-    function createMonk(){
 
-
-      var geo = new THREE.BoxGeometry( 3. , 4.6 , 3. );
-      var mat = new THREE.ShaderMaterial({
-        uniforms : {
-
-      
-          t_audio : uniforms.t_audio,
-          dT : uniforms.dT,
-          time : uniforms.time,
-          lightPosition : uniforms.lightPosition,
-          //max( dot( vNorm , lightDir), 0.);
-          iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
-      
-        },
-        vertexShader: shaders.vs.raytrace,
-        fragmentShader: shaders.fs.monk,
-        transparent: true
-
-      })
-
-      var mesh = new THREE.Mesh( geo , mat );
-      
-      mesh.position.x = -10;
-      mesh.position.y = 3.3;
-
-      mesh.hoverOver = function(){
-
-
-        var audioParams =  {
-
-          baseOffset: Math.random() * .2 + 0.6,
-          attack    : .140 * 5.,
-          release   : .140 * 40.3,
-          trans     : 1.2// + Math.random() * .5
-
-
-
-        }
-
-
-        grain.playNote( audioParams );
-
-      }
-
-      objectControls.add( mesh );
-
-
-
-
-      return mesh;
-
-    }
-
-    function createBalls(){
-
-
-
-      var balls = [];
-
-      var p = new THREE.Vector3();
-
-      for( var i = 0; i < 20; i++ ){
-
-
-        var z = (Math.random() * .8 + .2) * .5;
-        var x  = z * 4;
-        var y = 4 + Math.random() * 1.;
-
-        var ballMat = new THREE.ShaderMaterial({
-
-          uniforms:{
-
-            time          : uniforms.time,
-            dT            : uniforms.dT,
-            lightPosition : uniforms.lightPosition,
-            t_audio       : uniforms.t_audio,
-            iModelMat     : { type:"m4" , value: new THREE.Matrix4() },
-            uDimensions    : { type:"v3" , value: new THREE.Vector3(x,y,z) },
-            uID:{type:"f",value:i/20},
-            uHovered:{type:"f",value:0},
-
-          }, 
-
-          vertexShader: shaders.vs.raytrace,
-          fragmentShader: shaders.fs.spirit
-
-        });
-
-
-
-
-        var b = new THREE.Mesh( new THREE.BoxGeometry( x , y , z ) , ballMat );
-        //var b = new THREE.Mesh( new THREE.BoxGeometry( .5 , 4.6 , 1.5 ) , ballMat );
-
-
-
-      // var b = ball.clone();
-
-        var angle = .4 * Math.random() * 2 * Math.PI - Math.PI * .9;
-        var radius = Math.random() * 10  + 10;
-
-        b.position.x = Math.sin( angle ) * radius;
-        b.position.z = Math.cos( angle ) * radius;
-        //b.position.x = (Math.random()-1.3 ) * 20.
-        //b.position.z = (Math.random()-.5 ) * 20.
-        b.position.y = 10  + Math.random() * 10;
-
-        //b.scale.z = Math.random() * .8 + .2;
-        //b.scale.x = b.scale.z * 4;
-
-        b.id = i;
-
-     
-
-        b.audioParams = {
-
-          baseOffset: Math.random() * .8,
-          attack    : .140 * 4.,
-          release   : .140 * 10.3,
-          trans     : .9// + Math.random() * .5
-
-        }
-
-        b.hoverOver = function(){
-          grain.playNote( this.audioParams );
-          light.visible = false; // *cough*
-          //cubeCamera.updateCubeMap( renderer, scene );
-          light.visible = true;
-          //this.position.y -= .3;
-
-          this.material.uniforms.uHovered.value = 1.;
-
-        }
-
-        b.hoverOut = function(){
-
-
-          grain.playNote( this.audioParams );
-          light.visible = false; // *cough*
-          //cubeCamera.updateCubeMap( renderer, scene );
-          light.visible = true;
-          //this.position.y -= .3;
-
-          this.material.uniforms.uHovered.value = 0.;
-
-        }
-
-
-        b.lookAt( light.position );
-        treeObj.add( b );
-        objectControls.add( b );
-
-        balls.push( b );
-
-      }
-
-      return balls;
-
-
-    }
     function onLoad(){
       loaded ++;
       if( loaded == neededToLoad ){ init(); animate(); }
 
     }
-
-    function extraMesh(){
-
-
-      var mat = new THREE.ShaderMaterial({
-        uniforms:{ t_audio: uniforms.t_audio , time : uniforms.time} ,
-        vertexShader: shaders.vs.basic,
-        fragmentShader: shaders.fs.sky,
-        side: THREE.BackSide
-      });
-
-      var m = new THREE.Mesh( new THREE.IcosahedronGeometry( 30 , 3 ) , mat );
-      
-      m.position.y = -4.;
-      m.position.x = -6;
-
-      return m;
-
-    }
-
-
 
     </script>
 
