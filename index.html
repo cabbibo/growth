@@ -21,10 +21,10 @@
       body{ margin: 0px;  background:#000;}
       html{ overflow: hidden }
       h1{
-        color:#111;
-        position:absolute;
-        width:100%;
-        bottom:20%;
+        color:#444;
+        //position:absolute;
+        //width:100%;
+        top:20%;
         text-align: center;
         font-family: "Trebuchet MS", Helvetica, sans-serif;
       }
@@ -40,13 +40,21 @@
 
         //left:0%;
         //top:10%;
-        //position:absolute;
+        position:absolute;
+        top:0px;
+        z-index: -999;
+      }
+
+      #text{
+        position:absolute;
+        bottom:0px;
+        width:100%;
       }
     </style>
   </head>
 
   <body>
- 
+
     <script src = "lib/three.min.js"                ></script>
     <script src = "lib/jquery.min.js"               ></script>
     <script src = "lib/ShaderLoader.js"             ></script>
@@ -103,6 +111,7 @@
 
     //shaders.load( 'fs-bg' , 'bg' , 'fragment' );
 
+    lookPosition = new THREE.Vector3();
 
     // Normals For the Material
     var uniforms = {
@@ -113,7 +122,8 @@
       t_audio : {type:"t" , value: null},
       lightPosition: { type:"v3" , value : new THREE.Vector3() },
 
-      iModelMat:{ type:"m4" , value: new THREE.Matrix4() }
+      iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
+      lookPosition:  { type:"v3" , value : lookPosition },
 
 
     }
@@ -219,7 +229,7 @@
         height:                 10,
         sides:                  10,
         numOf:                  20, 
-        randomness:             1.2,
+        randomness:             2.,
         slices:                 100,
         lightPosition:          new THREE.Vector3(-1 , 8.1 , 1),
         lightSize:              4,
@@ -232,10 +242,11 @@
         progressionPower:        2.2,
         lengthReduction:         .5,
         maxIterations:           3,
-        flattening:              .2,
+        flattening:              1.,
 
         maxVerts:      10000000
       }
+
 
 
       treeMesh = new Tree(treeParams)
@@ -290,6 +301,31 @@
       light.position.copy( treeParams.lightPosition )
 
 
+      light.audioParams =  {
+
+          baseOffset: 0.,
+          attack    : .140 * 40.,
+          release   : .140 * 100.3,
+          trans     : .6// + Math.random() * .5
+
+        }
+
+      light.select = function(){
+
+
+        var audioParams =  {
+
+          baseOffset: Math.random() * .83,
+          attack    : .140 * 30.,
+          release   : .140 * 80.3,
+          trans     : .6// + Math.random() * .5
+
+        }
+
+
+          grain.playNote( audioParams );
+
+      }
       objectControls.add(light );
 
       uniforms.lightPosition.value.copy( light.position );
@@ -311,9 +347,9 @@
 
 
 
- console.log( treeMesh.curves.length )
+      console.log( treeMesh.curves.length )
       console.log( treeMesh.cleanCurves.length )
-      createBalls( treeMesh.cleanCurves )
+      balls = createBalls( treeMesh.cleanCurves )
 
 
 
@@ -330,6 +366,7 @@
 
 
 
+
     }
 
   
@@ -341,8 +378,13 @@
       //}
      
       stats.update();
+         audio.update();
       uniforms.dT.value = clock.getDelta();
       uniforms.time.value += uniforms.dT.value;
+
+      lookPosition.x = Math.sin( uniforms.time.value );
+      lookPosition.y = Math.sin( uniforms.time.value );
+      lookPosition.z = Math.sin( uniforms.time.value );
 
       uniforms.lightPosition.value.set( 1 , 1 , 1  );
 
@@ -352,7 +394,15 @@
       light.updateMatrixWorld();
       light.material.uniforms.iModelMat.value.getInverse( light.matrixWorld );
 
-      audio.update();
+      //light.lookAt( lookPosition )
+
+      for( var i = 0; i < balls.length; i++ ){
+        balls[i].position.y  += Math.sin( uniforms.time.value * (20 + i) * .1 + i ) * .005;
+
+        balls[i].scale.y = audio.audioData[i*4] * .4 + 1.
+      }
+
+   
 
       //treeObj.rotation.y += uniforms.dT.value;
 
@@ -428,20 +478,31 @@
 
     function createBalls(){
 
-      var ball = new THREE.Mesh( new THREE.BoxGeometry( 1 , 5 , 1 ) , new THREE.MeshBasicMaterial());
+      var ball = new THREE.Mesh( new THREE.BoxGeometry( .5 , 5 , .5 ) , new THREE.MeshLambertMaterial({
+        //map: uniforms.t_audio.value
+      }));
 
+
+      var balls = [];
 
       var p = new THREE.Vector3();
 
-      for( var i = 0; i < 10; i++ ){
+      for( var i = 0; i < 100; i++ ){
         var b = ball.clone();
 
-        b.position.x = (Math.random()-1.3 ) * 20.
-        b.position.z = (Math.random()-.5 ) * 20.
-        b.position.y = Math.random() * 2.5;
+        var angle = Math.random() * 4. - Math.PI * .6;
+        var radius = Math.random() * 20  + 10;
+
+        b.position.x = Math.sin( angle ) * radius;
+        b.position.z = Math.cos( angle ) * radius;
+        //b.position.x = (Math.random()-1.3 ) * 20.
+        //b.position.z = (Math.random()-.5 ) * 20.
+        b.position.y = Math.random() * 1. + .3;
 
         b.scale.x = Math.random() * .8 + .2;
-        b.scale.z = b.scale.x;
+        b.scale.z = b.scale.x * 4;
+
+        b.id = i;
 
      
 
@@ -456,16 +517,23 @@
 
         b.hoverOver = function(){
           grain.playNote( this.audioParams );
-                light.visible = false; // *cough*
-      cubeCamera.updateCubeMap( renderer, scene );
-      light.visible = true;
+          light.visible = false; // *cough*
+          //cubeCamera.updateCubeMap( renderer, scene );
+          light.visible = true;
+          //this.position.y -= .3;
 
         }
 
+
+        b.lookAt( light.position );
         treeObj.add( b );
         objectControls.add( b );
 
+        balls.push( b );
+
       }
+
+      return balls;
 
 
     }
@@ -477,7 +545,7 @@
 
     function extraMesh(){
 
-      var m = new THREE.Mesh( new THREE.IcosahedronGeometry( 30 , 3 ), new THREE.MeshLambertMaterial({
+      var m = new THREE.Mesh( new THREE.IcosahedronGeometry( 40 , 3 ), new THREE.MeshLambertMaterial({
         color: 0xffffff,
         side: THREE.BackSide,
         transparent: true,

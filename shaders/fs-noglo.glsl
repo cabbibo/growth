@@ -125,6 +125,16 @@ float fNoise( vec3 p ){
 
 
 
+vec2 opS( vec2 d1, vec2 d2 )
+{
+    return  -d1.x > d2.x  ? vec2(-d1.x , d1.y) : d2 ;
+}
+vec2 opU( vec2 d1, vec2 d2 )
+{
+    return  d1.x < d2.x ? d1 : d2 ;
+}
+
+
 
 // Modelling 
 //--------------------------------
@@ -150,6 +160,12 @@ vec2 map( vec3 pos ){
 
     res = smoothU( outer , center , .5);
 
+/*    vec2 lEye = vec2( sdSphere( pos - vec3( 0.8 , 0., 1.) , .7 ) , 1. );
+    vec2 rEye = vec2( sdSphere( pos - vec3( -0.8 , 0., 1.) , .7 ) , 1. );
+
+    vec2 eye = opU( lEye , rEye );
+
+    res = opS( lEye , res );*/
 
     return res;
     

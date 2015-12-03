@@ -54,11 +54,11 @@ vec3 depthCol( vec3 ro , vec3 rd ){
 
     p += rd * 2.;
 
-    v = triNoise3D( p * .4 , 0. );
+    v = triNoise3D( p * .4 , 0.1 );
 
     if( v > .3){
       //col = vec3( float( i) / 10. );
-      col =2. *(float( i) / 10.) * texture2D( t_audio , vec2( (float( i) / 10.) + (v -.4 ), 0. )).xyz;
+      col =1. * vec3(float( i) / 10.);// + texture2D( t_audio , vec2( (float( i) / 10.) + (v -.4 ), 0. )).xyz;
       break;
     }
 
