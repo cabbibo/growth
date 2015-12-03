@@ -349,7 +349,7 @@ Tree.prototype.createGeo = function( params ){
     lengthReduction:         .5,
     maxIterations:           3,
 
-    maxVerts:      10000000
+    maxVerts:      100000
   });
 
 
@@ -501,13 +501,13 @@ Tree.prototype.createTreeCurve = function( iteration , radius , start, end , par
 
     }
 
-    console.log( point )
+
 
     var p1 = new THREE.Vector3();
     p1.copy( point );
     p1.sub( params.lightPosition );
     var l = p1.length();
-    console.log( l );
+
 
     if( l < params.lightSize ){
 
@@ -562,7 +562,7 @@ Tree.prototype.createTreeCurve = function( iteration , radius , start, end , par
 
        // lightDir.normalize();
 
-        console.log( lightDir)
+
         lightDir.multiplyScalar( .1 )
 
 
@@ -596,7 +596,7 @@ Tree.prototype.createTreeCurve = function( iteration , radius , start, end , par
         p1.copy( newEnd );
         p1.sub( params.lightPosition );
         var l = p1.length();
-        console.log( l );
+ 
 
         if( l < params.lightSize ){
 

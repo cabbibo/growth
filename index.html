@@ -33,6 +33,15 @@
         text-decoration: underline;
         color:#666;
       }
+
+      #renderer{
+       /// border-top: 1px solid white;
+        //border-bottom: 1px solid white;
+
+        //left:0%;
+        //top:10%;
+        //position:absolute;
+      }
     </style>
   </head>
 
@@ -90,6 +99,7 @@
 
     shaders.load( 'vs-holo' , 'raytrace' , 'vertex'   );
     shaders.load( 'fs-tree' , 'tree' , 'fragment' );
+    shaders.load( 'fs-noglo' , 'noglo' , 'fragment' );
 
     //shaders.load( 'fs-bg' , 'bg' , 'fragment' );
 
@@ -159,7 +169,7 @@
       var h = window.innerHeight;
 
       camera = new THREE.PerspectiveCamera( 65 , w/h , .1 , 10000 );
-      camera.position.z = 15.5;
+      camera.position.z = 20.5;
       //camera.position.x = 3.5;
 
       scene = new THREE.Scene();
@@ -167,8 +177,9 @@
       var dpr = window.devicePixelRatio || 1;
       renderer = new THREE.WebGLRenderer();
       renderer.setPixelRatio( dpr );
-      renderer.setSize( window.innerWidth, window.innerHeight );
+      renderer.setSize( window.innerWidth , window.innerHeight );
 
+      renderer.domElement.id = "renderer"
       document.body.appendChild( renderer.domElement );
 
 
@@ -177,7 +188,7 @@
       stats.domElement.style.left = "0px";
       stats.domElement.style.bottom = "-30px";
       stats.domElement.style.zIndex = "999";
-      //document.body.appendChild( stats.domElement );
+      document.body.appendChild( stats.domElement );
 
       window.addEventListener( 'resize', onWindowResize, false );
       window.addEventListener( 'keydown', keydown, false );
@@ -210,7 +221,7 @@
         numOf:                  20, 
         randomness:             1.2,
         slices:                 100,
-        lightPosition:          new THREE.Vector3(-1 , 8.1 , -1),
+        lightPosition:          new THREE.Vector3(-1 , 8.1 , 1),
         lightSize:              4,
 
         startingChance:          20.,
@@ -236,14 +247,19 @@
 
 
 
-      ground = new THREE.Mesh( new THREE.PlaneGeometry( 100 , 100 , 100 , 100 ) , new THREE.MeshBasicMaterial({color:0x000000}) );
+      ground = new THREE.Mesh( new THREE.PlaneGeometry( 100 , 100 , 100 , 100 ) , new THREE.MeshLambertMaterial({color:0xffffff}) );
       ground.rotation.x = -Math.PI/2;
       ground.position.y = 1;
+
+
+      objectControls.add( ground );
+
       treeObj.add( ground );
       treeObj.add( treeMesh );
 
       treeObj.position.y = -8;
-      treeObj.position.x = 2;
+      treeObj.position.x = 10;
+      //treeObj.position.z = -3;
 
 
 
@@ -251,21 +267,67 @@
 
 
 
-      console.log( treeMesh.curves.length )
-      console.log( treeMesh.cleanCurves.length )
-      createBalls( treeMesh.cleanCurves )
+     
 
 
-      var light = new THREE.Mesh( new THREE.IcosahedronGeometry( treeParams.lightSize , 3 ),new THREE.MeshBasicMaterial({
+      var lightMat = new THREE.ShaderMaterial({
+        uniforms:{
+          t_audio: uniforms.t_audio,
+          time: uniforms.time,
+          dT: uniforms.dT,
+          lightPosition: uniforms.lightPosition,
+          iModelMat:{ type:"m4" , value: new THREE.Matrix4() },
+          cubeMap : {type:"t" , value:null},
+        },
+        vertexShader: shaders.vs.raytrace,
+        fragmentShader: shaders.fs.noglo,
         transparent: true,
-        opacity : 1.
-      }));
+        //opacity: 1.,
+
+      })
+
+      light = new THREE.Mesh( new THREE.IcosahedronGeometry( treeParams.lightSize * .8 , 4 ), lightMat );
       light.position.copy( treeParams.lightPosition )
+
+
+      objectControls.add(light );
 
       uniforms.lightPosition.value.copy( light.position );
       treeObj.add( light );
 
+      var l = new THREE.PointLight( 0xffffff, .5, 40);
+      l.position.copy( light.position );
+
+      treeObj.add( l );
+
       //grain.hold()
+
+
+      cubeCamera = new THREE.CubeCamera(  treeParams.lightSize / 1.3, 100, 1024  ); // parameters: near, far, resolution
+      cubeCamera.renderTarget.minFilter = THREE.LinearMipMapLinearFilter; // mipmap filter
+      cubeCamera.position.copy( light.position );
+      //cubeCamera.position.add( treeObj.position );
+      treeObj.add( cubeCamera );
+
+
+
+ console.log( treeMesh.curves.length )
+      console.log( treeMesh.cleanCurves.length )
+      createBalls( treeMesh.cleanCurves )
+
+
+
+      var m = extraMesh();
+      treeObj.add( m );
+
+      light.visible = false; // *cough*
+      cubeCamera.updateCubeMap( renderer, scene );
+      light.visible = true;
+
+      light.material.uniforms.cubeMap.value = cubeCamera.renderTarget;
+
+
+
 
 
     }
@@ -276,11 +338,6 @@
 
       requestAnimationFrame( animate );
 
-      counter ++;
-
-      //if( counter == frameSlow ){
-        counter = 0;
-        renderer.render( scene , camera );
       //}
      
       stats.update();
@@ -292,8 +349,12 @@
       treeMesh.updateMatrixWorld();
       uniforms.iModelMat.value.getInverse( treeMesh.matrixWorld );
 
+      light.updateMatrixWorld();
+      light.material.uniforms.iModelMat.value.getInverse( light.matrixWorld );
+
       audio.update();
 
+      //treeObj.rotation.y += uniforms.dT.value;
 
       controls.update();
       objectControls.update();
@@ -303,6 +364,19 @@
         FIRST_FRAME = true;
       }
 
+
+      var angle = uniforms.time.value * .1;
+     /* camera.position.x = Math.sin( angle ) * 20.;
+      camera.position.z = Math.cos( angle ) * 20.;
+
+      camera.lookAt(new THREE.Vector3());*/
+
+      counter ++;
+
+      //if( counter == frameSlow ){
+        counter = 0;
+        renderer.render( scene , camera );
+      //}
 
     }
 
@@ -352,78 +426,68 @@
 		}
 
 
-    function createBalls( curves ){
+    function createBalls(){
 
-      var ball = new THREE.Mesh( new THREE.IcosahedronGeometry(.3 , 2 ), new THREE.MeshBasicMaterial())
-
-      //var ball = new THREE.Mesh( new THREE.IcosahedronGeometry(.3 , 1 ), new THREE.MeshBasicMaterial())
-
-      var p = new THREE.Vector3( 0 , 1.6 , 0 );
-      var up = new THREE.Vector3( 0 , 1 , 0 );
-
-      var p1 = new THREE.Vector3();
-      var p2 = new THREE.Vector3();
-
-      var notToClose = 0
-      for( var i = 0; i < curves.length - 2; i++ ){
-        var c = curves[i][1];
-
-        for( var j = 0; j < (c.length-1) * .7; j++ ){
-          notToClose ++
-
-          var r = Math.random();
-
-          r *= (j / c.length);
-
-          p1.copy( c[j]) ;
-          p2.copy( c[j+1]);
-
-          p1.sub( p2 );
-          p1.normalize();
-
-          var v = p1.dot( up );
+      var ball = new THREE.Mesh( new THREE.BoxGeometry( 1 , 5 , 1 ) , new THREE.MeshBasicMaterial());
 
 
+      var p = new THREE.Vector3();
 
-          if( Math.abs(v) < .1  && r > .5  && notToClose > 5){
+      for( var i = 0; i < 10; i++ ){
+        var b = ball.clone();
 
-              var b = ball.clone();
-              b.position.copy( c[j] )
-              b.position.sub( p );
-              notToClose = 0;
+        b.position.x = (Math.random()-1.3 ) * 20.
+        b.position.z = (Math.random()-.5 ) * 20.
+        b.position.y = Math.random() * 2.5;
 
-              b.audioParams = {
+        b.scale.x = Math.random() * .8 + .2;
+        b.scale.z = b.scale.x;
 
-                baseOffset: Math.random() * .8,
-                attack    : .140 * 4.,
-                release   : .140 * 10.3,
-                trans     : .3// + Math.random() * .5
+     
 
-              }
+        b.audioParams = {
 
-              b.hoverOver = function(){
-
-                console.log('whas')
-                console.log( this.audioParams )
-
-                grain.playNote( this.audioParams );
-
-              }
-              treeObj.add( b );
-              objectControls.add( b );
-
-          }
+          baseOffset: Math.random() * .8,
+          attack    : .140 * 4.,
+          release   : .140 * 10.3,
+          trans     : .3// + Math.random() * .5
 
         }
+
+        b.hoverOver = function(){
+          grain.playNote( this.audioParams );
+                light.visible = false; // *cough*
+      cubeCamera.updateCubeMap( renderer, scene );
+      light.visible = true;
+
+        }
+
+        treeObj.add( b );
+        objectControls.add( b );
 
       }
 
 
     }
-
     function onLoad(){
       loaded ++;
       if( loaded == neededToLoad ){ init(); animate(); }
+
+    }
+
+    function extraMesh(){
+
+      var m = new THREE.Mesh( new THREE.IcosahedronGeometry( 30 , 3 ), new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        side: THREE.BackSide,
+        transparent: true,
+        opacity: .4,
+      //  depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }));
+      m.position.y = 5.;
+
+      return m;
 
     }
 
