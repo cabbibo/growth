@@ -50,7 +50,7 @@
       // var b = ball.clone();
 
         var angle = .4 * Math.random() * 2 * Math.PI - Math.PI * .9;
-        var radius = Math.random() * 15  + 8;
+        var radius = Math.random() * 10  + 12;
 
         b.position.x = Math.sin( angle ) * radius;
         b.position.z = Math.cos( angle ) * radius;

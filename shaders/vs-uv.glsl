@@ -17,7 +17,7 @@ $simplex
 
 float getHeight( vec2 uv ){
 
-  float v = max( 0. , uv.x * uv.x * uv.x * .0002 + abs( uv.y * uv.y * uv.y) * .0001 );
+  float v = max( 0. ,  abs(uv.x * uv.x * uv.x) * .00013 + abs( uv.y * uv.y * uv.y) * .0001 );
   float lu = length( uv );
   vec4 a = texture2D( t_audio , vec2( lu / 100. , 0. ) );
   float s = snoise( uv  / 10. + vec2(  time * .1 , 0.)) ;
@@ -29,7 +29,7 @@ float getHeight( vec2 uv ){
 
 float getHeight( vec2 uv  , out float lookup ){
 
-  float v = max( 0. , uv.x * uv.x * uv.x * .0002 + abs( uv.y * uv.y * uv.y) * .0001 );
+  float v = max( 0. , abs(uv.x * uv.x * uv.x) * .00013 + abs( uv.y * uv.y * uv.y) * .0001 );
   float lu = length( uv );
   vec4 a = texture2D( t_audio , vec2( lu / 100. , 0. ) );
   float s = snoise( uv  / 10. + vec2(  time  * .1 , 0.)) ;

@@ -154,7 +154,7 @@
 
     var audio = new AudioController();
 
-    //audio.mute.gain.value = 0;
+    audio.mute.gain.value = 0;
 
     var audioBuffers = [];
 
@@ -199,7 +199,7 @@
       var h = window.innerHeight;
 
       camera = new THREE.PerspectiveCamera( 65 , w/h , .1 , 10000 );
-      camera.position.z = 35.5;
+      camera.position.z = 40.5;
       //camera.position.x = 3.5;
 
       scene = new THREE.Scene();
@@ -356,7 +356,7 @@
 
 
 
-      treeObj.rotation.y += uniforms.dT.value * .5 * uniforms.uPower.value;
+      treeObj.rotation.y += uniforms.dT.value * .5 * Math.abs( uniforms.uPower.value );
 
       ///uniforms.lightPosition.value.set( 1 , 1 , 1  );
 

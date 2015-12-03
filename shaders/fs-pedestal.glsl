@@ -144,6 +144,12 @@ vec3 yrotate(vec3 pos , float t) {
                 0.0, 1.0, 0.0,
                 sin(t), 0.0, cos(t)) * pos;
 }
+vec3 zrotate(vec3 pos , float t) {
+  return mat3(cos(t), -sin(t), 0.0,
+                sin(t), cos(t), 0.0,
+                0.0, 0.0, 1.0) * pos;
+}
+
 
 
 float opS( float d1, float d2 )
@@ -197,6 +203,12 @@ float cBase( vec3 pos ){
 
 }
 
+float sdHexPrism( vec3 p, vec2 h )
+{
+    vec3 q = abs(p);
+    return max(q.z-h.y,max((q.x*0.866025+q.y*0.5),q.y)-h.x);
+}
+
 float sdCappedCylinder( vec3 p, vec2 h )
 {
   vec2 d = abs(vec2(length(p.xz),p.y)) - h;
@@ -208,11 +220,14 @@ float sdCappedCylinder( vec3 p, vec2 h )
 // than connnect to ID numbers, using  by passing through baseID
 // write out baseID for later use.
 vec2 body( vec3 pos , out float baseID ){
+  
+  vec3 q = pos;
 
+  pos -= vec3( 0. , .7 , 0. );
   vec3 c = vec3( 2.4 , 2.4 , 2.4 );
-  vec3 q = pos;//mod(pos,c)-0.5*c;
+  //vec3 q = pos;//mod(pos,c)-0.5*c;
 
-  float n = abs( noise( q * 1. + vec3( 0. , time * .2 , 0.) ));
+ // float n = abs( noise( q * 1. + vec3( 0. , time * .2 , 0.) ));
 
   vec2 h , he;
 
@@ -222,16 +237,29 @@ vec2 body( vec3 pos , out float baseID ){
 
 
 
+
+
   vec3 bent = iqSpaceBend( pos - vec3( 2. , 0. ,0.) , .1 , 1. * abs(pos.y)  );
   he = vec2( sdSphere( pos - vec3( -6. , 0. ,0.) , 2.5) , 2. );
-  h = vec2( sdCappedCylinder( bent , vec2( 3.4 , 2.4 )  ) - .2 * abs(min(0.,pos.y)) * (1.5 + sin( 1.4 * time * (uPower * .1 + 1.) + pos.y ))  , 1. );
+
+  h =   he ;
+
+  float extra = .2 * abs(min(0.,pos.y)) * (1.5 + sin( 1.4 * time * (uPower * .1 + 1.) + pos.y ));
+  he = vec2( sdCappedCylinder( bent , vec2( 3.4 , 2.4 )  ) - extra  , 1. );
   h = smoothU( h ,  he , 6.5 );
 
-  he = vec2( sdPlane( pos , vec4( 0. , 1. , 0. , 3. ) ) + n * 1.4 , 3.);
-  h = smoothU( h , he  , .5 );
+ /* he = vec2( sdPlane( pos , vec4( 0. , 1. , 0. , 3. ) ) + n * 1.4 , 3.);
+  h = smoothU( h , he  , .5 );*/
 
-  he = vec2( sdPlane( pos , vec4( 0. , -1. , 0. , .8 ) ) , 4.);
+  he = vec2( sdPlane( pos , vec4( 0. , -1. , 0. , 0. ) ) , 10.);
   h = opS( he , h );
+
+
+  q = xrotate( q , PI / 2.);
+  he = vec2( -sdHexPrism( zrotate( q , PI / 6. ) , vec2( 8.8 , 20. )) , 2. );
+  
+  h = smoothU( h ,  he , .5 );
+
 
   //h = vec2( opRepSphere( pos , c , .6 ) , 1. );
   return h;
@@ -366,8 +394,9 @@ void main(){
   spec = pow( spec , 10. );
   vec3 col = vec3( 0.);//texture2D( t_audio , vec2( vUv.y , 0. )).xyz;// * vec3( 1. - spec );
 
-  col +=vec3( spec );
   vec2 res = calcIntersection( ro , rd );
+  vec3 iCol = vec3( 0. );
+
 
   if( res.y > -.5 ){
 
@@ -375,18 +404,29 @@ void main(){
     vec3 norm = calcNormal( pos );
   
     lightDir = normalize( vec3( 1., 2. , 0.) - pos);
-    lamb = max( dot( norm , -lightDir ), 0.);
+    lamb = max( dot( norm , lightDir ), 0.);
 
     float fr = max( 0. , dot( norm , -rd ) );
     //col += norm * .5 + .5;
     //col *= 1. - fr;
     //col *= lamb;
 
-    col += (1.-fr) * (norm * .5 + .5);
+    //fr *= fr * fr * fr;
+    
 
+    float ifr = pow( (1.-fr) , 1. );
+    iCol += ifr * (norm * .5 + .5);
+
+    iCol = norm * .5 + .5;
+    iCol += vec3( pos.y ) * .3;
+    iCol *= ifr;// * mix( iCol , aCol, (res.y - 2.) );
       if( res.y >= 2. - uHovered ){
-        vec3 aCol =vec3(1.- fr );// texture2D( t_audio , vec2(fr,0. )).xyz;
-        col = mix( col , aCol, (res.y - 2.) );
+        vec3 aCol = vec3( ifr );// texture2D( t_audio , vec2(fr,0. )).xyz;
+        iCol = ifr * mix( iCol , aCol, (res.y - 2.) );
+      }
+
+      if( res.y == 10. ){
+        iCol = vec3( lamb );
       }
       //float fr = max( 0. , dot( norm , -rd ) );
       //vec3 aCol = texture2D( t_audio , vec2(fr,0. )).xyz;
@@ -407,8 +447,14 @@ void main(){
     }else{//discard;
     }
   }
-  if(  vUv.y - .5 > .45  ){
-    col =  vec3( lamb );
+
+  col = iCol;
+
+
+  if( dot( vNorm , vec3( 0. , 1. , 0. ) ) < .9 ){
+    col = vec3( 1. - fr ) *  (.5 -vPos.y * .5) ;
+    vec3 aCol = texture2D( t_audio , vec2(vUv.y,0.)).xyz;
+    col = mix( col , aCol + col , uHovered );
   }
 
 
@@ -416,7 +462,7 @@ void main(){
  // col = vec3( 1. )
   //col = textureCube( cubeMap , reflDir ).xyz;
 
-  gl_FragColor = vec4( col , 1. );
+  gl_FragColor = vec4( col, 1. );
 
 
 }
