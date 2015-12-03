@@ -259,7 +259,7 @@
       });
 
 
-      var ground = new THREE.Mesh( new THREE.PlaneBufferGeometry( 100 , 100 , 10 , 10 ) , mat );
+      var ground = new THREE.Mesh( new THREE.PlaneBufferGeometry( 100 , 100 , 300 , 300 ) , mat );
       ground.rotation.x = -Math.PI/2;
       ground.position.y = 0;
 
