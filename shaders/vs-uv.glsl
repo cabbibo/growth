@@ -23,7 +23,7 @@ float getV( vec2 uv ){
 float getS( vec2 uv ){
 
   float nuv = length(((uv.x + uv.y)/100.));
-return snoise( (uv  / 10.) * (2.-2.*nuv) + vec2(  time  * .1 * (4.-4.*nuv) , 0.));
+ return snoise( (uv  / 10.) * (2.-2.*nuv) + vec2(  time  * .1  , 0.));
 
 }
 float getHeight( vec2 uv ){
