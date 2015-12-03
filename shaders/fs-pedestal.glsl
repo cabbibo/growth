@@ -451,7 +451,7 @@ void main(){
   col = iCol;
 
 
-  if( dot( vNorm , vec3( 0. , 1. , 0. ) ) < .9 ){
+  if( dot( vNorm , vec3( 0. , 1. , 0. ) ) < .99){
     col = vec3( 1. - fr ) *  (.5 -vPos.y * .5) ;
     vec3 aCol = texture2D( t_audio , vec2(vUv.y,0.)).xyz;
     col = mix( col , aCol + col , uHovered );

@@ -15,12 +15,23 @@ varying float vLookup;
 $simplex
 
 
+
+float getV( vec2 uv ){
+  return max( 0. ,  abs(uv.x * uv.x * uv.x) * .00013 + ((uv.x + uv.y)/100.+.5) * .4 + abs( uv.y * uv.y * uv.y) * .0001 );
+}
+
+float getS( vec2 uv ){
+
+  float nuv = length(((uv.x + uv.y)/100.));
+return snoise( (uv  / 10.) * (2.-2.*nuv) + vec2(  time  * .1 * (4.-4.*nuv) , 0.));
+
+}
 float getHeight( vec2 uv ){
 
-  float v = max( 0. ,  abs(uv.x * uv.x * uv.x) * .00013 + abs( uv.y * uv.y * uv.y) * .0001 );
+  float v = getV( uv );
   float lu = length( uv );
   vec4 a = texture2D( t_audio , vec2( lu / 100. , 0. ) );
-  float s = snoise( uv  / 10. + vec2(  time * .1 , 0.)) ;
+  float s = getS( uv );
 
   return v + v *  length( a ) * (1. +  s) * .1;
 
@@ -29,10 +40,10 @@ float getHeight( vec2 uv ){
 
 float getHeight( vec2 uv  , out float lookup ){
 
-  float v = max( 0. , abs(uv.x * uv.x * uv.x) * .00013 + abs( uv.y * uv.y * uv.y) * .0001 );
+  float v = getV( uv );
   float lu = length( uv );
   vec4 a = texture2D( t_audio , vec2( lu / 100. , 0. ) );
-  float s = snoise( uv  / 10. + vec2(  time  * .1 , 0.)) ;
+  float s =  getS( uv );
 
   lookup = (1. +  s) * .5;
 

@@ -255,11 +255,11 @@
         vertexShader: shaders.vs.basic,
         fragmentShader: shaders.fs.floor,
        // side: THREE.BackSide
-       shading: THREE.FlatShading
+        shading: THREE.FlatShading
       });
 
 
-      var ground = new THREE.Mesh( new THREE.PlaneBufferGeometry( 100 , 100 , 160 , 160 ) , mat );
+      var ground = new THREE.Mesh( new THREE.PlaneBufferGeometry( 100 , 100 , 10 , 10 ) , mat );
       ground.rotation.x = -Math.PI/2;
       ground.position.y = 0;
 
@@ -327,7 +327,7 @@
       });
 
 
-      var pedestal = new THREE.Mesh( new THREE.CylinderGeometry( 10 , 12 , 1, 6 ) , mat );
+      var pedestal = new THREE.Mesh( new THREE.CylinderGeometry( 10 , 14 , 1, 6 ) , mat );
       //pedestal.rotation.x = -Math.PI/2;
       pedestal.position.y = .5;
       pedestal.position.x = -2;
