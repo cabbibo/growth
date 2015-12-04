@@ -18,8 +18,8 @@ void main(){
   vec4 aCol = texture2D( t_audio , vec2( position.x ));
   vAudio = aCol;
 
-  float size = ((length(aCol) * length( aCol )) + .2 ) * 100. / ( length( dif ) );
-  gl_PointSize = min( 20. , size );
+  float size = ((length(aCol) * length( aCol )) ) * 100. / ( length( dif ) );
+  gl_PointSize = min( 20. , size  );
 
   vPos = ( modelMatrix * vec4( pos.xyz , 1. ) ).xyz;
 

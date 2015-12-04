@@ -465,3 +465,70 @@
 
     }
 
+
+
+//// ABOUT
+  function makeAbout(){
+
+
+      var geo = new THREE.BoxGeometry( 1. , 4.6 , 1. );
+      var mat = new THREE.MeshLambertMaterial();
+
+      var mesh = new THREE.Mesh( geo , mat );
+      
+      mesh.position.x = 20;
+      mesh.position.z = 20;
+      mesh.position.y = 3.3;
+
+      mesh.hoverOver = function(){
+
+
+        var audioParams =  {
+
+          baseOffset: Math.random() * .2 + 0.6,
+          attack    : .140 * 2.,
+          release   : .140 * 10.3,
+          trans     : 1.2// + Math.random() * .5
+
+        }
+
+
+        grain.playNote( audioParams );
+        //this.material.uniforms.uHovered.value = 1.;
+
+      }
+
+      mesh.hoverOut = function(){
+
+        //this.material.uniforms.uHovered.value = 0.;
+
+      }
+
+      mesh.select = function(){
+       // uniforms.uPower.value = 4.;
+       // dissipationFactor = .8;
+
+        ap = {
+          baseOffset: Math.random() * .2 + 0.7,
+          attack: .140 * .1,
+          release: .140 * 3.,
+          trans: .3
+
+        }
+
+        grain.playNote( ap );
+
+        $("#info").toggle();
+
+      }
+
+
+      objectControls.add( mesh );
+
+
+      return mesh;
+
+    }
+
+
+

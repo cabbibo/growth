@@ -19,17 +19,93 @@
   <head>
     <style>
       body{ margin: 0px;  background:#000;}
-      html{ overflow: hidden }
+      html{ color:#fff; overflow: hidden ; font-family:  "GeoSans"}
+      #load{
+        
+        width:100%;
+        position:absolute;
+        top:50%;
+        z-index: -999;
+        margin-top: -3px;
+        text-align: center;
+      }
 
+      @font-face {
+              font-family: "GeoSans";
+              src: url("GeosansLight.ttf");
+            }
+
+      a{
+        color:#fff;
+        text-decoration: none;
+      }
+
+      a:hover{
+        color:#fff;
+        text-decoration: underline;
+      }
+
+      #info{
+        width:60%;
+        height:100%;
+        position:absolute;
+        z-index: 999;
+        padding-left: 50px;
+        padding-right: 50px;
+        margin-left:-50px;
+        left:20%;
+        font-size: 20px;
+        background: rgba( 0 , 0 , 0 , .7);
+        overflow: scroll;
+        //text-align: center;
+      }
+
+      #info h1{
+        margin-top: 100px;
+        margin-bottom: 40px;
+      }
+
+      #info h2{
+       // border-bottom:1px solid white;
+      }
+
+      #closebutton{
+        font-size: 50px;
+        padding-top: 60px;
+        padding-bottom: 60px;
+        width:100%;
+        right:0px;
+        float:right;
+        text-align: right;
+      }
 
     </style>
   </head>
 
   <body>
 
-    <!--<div id="text">
-      <h1> BABY JESUS </h1>
-    </div>-->
+    <div id="load">
+      <img src="loadGif.gif"></img>
+      <h2> Loading </h1>
+    </div>
+
+    <div id="info">
+      <h1>Growth</h1>
+      <p> I get especially emotional during the winters. I'm not talking hopeless depression, but rather those relatively special moments where everything feels tender. I would use the word meloncholy, but that word has connotations which I can't get behind. </p>
+      <p>At these times, when simply living can be overbearing, I find myself looking towards  infinity for consolation. The type of infinity doesn't really matter. It could be putting on head phones and coding for 48 hours straight ( aka how this is made ), but many more times it is a magical conversation with a friend.</p> 
+      <p> These moments unfurl into eternity, and it feels for a fragile second, that the entirety of this universe came into being, just so I could feel this immaculate light.</p>
+      <p></p>
+      <p>The problem is these moments are fleeting, and leave me with the pain of lacking something I just held close to my heart. This pain, and the fear which pursues it, causes me to be unkind to others. Although it easily could be just me, I'm relatively certain that pain is at least 99% of the reason we are unkind to others.</p>
+      <p> The thing about this pain, which is likely an existential one, is that deep within it, there are moments of peace. Times when I feel bigger than myself. When I can access these moments, many times, by simply sitting with my pain and understanding it deeply, I grow.</p>
+      <p>I begin to live with that pain in a healthier way, and instead of hurting others because of it, I feel close to them, closer to you. The unending fear of death, the terror of being alone, all begin to fade. It isn't the unyielding field of rainbows sort of solution, but there is an iridescence I find at the center.</p>
+      <p>I don't know what pains you feel, and I can't pretend that mine are parallel, or that I could ever understand what your experience of this world is. I only know that taking the time for meditation, contemplation, therapy, conversation, exercise, and creation help me become fufilled. I hope that this winter, you are able to find the time to do the things that fufill you, help you understand your pain, and especially grow.
+      <p>For as we grow, it grows.</p>
+      <p></p>
+      <p> Isaac </p>
+    <a id="closebutton">close</a>
+
+
+    </div>
 
     <script src = "lib/three.min.js"                ></script>
     <script src = "lib/jquery.min.js"               ></script>
@@ -68,6 +144,8 @@
 
 
     <script>
+    $("#info").toggle();
+    $('#closebutton').click( function() {  $("#info").toggle(); return false; } );
 
     var frameSlow = 6;
     var counter = 0;
@@ -221,13 +299,13 @@
       document.body.appendChild( stats.domElement );
 
       window.addEventListener( 'resize', onWindowResize, false );
-      window.addEventListener( 'keydown', keydown, false );
+      //window.addEventListener( 'keydown', keydown, false );
 
       clock = new THREE.Clock();
 
 
       //controls = new THREE.MouseMoveControls( camera );
-      controls = new THREE.TrackballControls( camera );
+      //controls = new THREE.TrackballControls( camera );
 
       objectControls = new ObjectControls( camera );
 
@@ -282,6 +360,7 @@
       ground = makeGround( treeParams );
       light = makeLight( treeParams );
       pedestal = makePedestal( treeParams );
+      about = makeAbout(treeParams);
 
 
       var l = new THREE.PointLight( 0xffffff, .5, 40);
@@ -296,9 +375,11 @@
       treeObj.add( light );
       treeObj.add( pedestal );
       treeObj.add( snowflakes.body );
+      treeObj.add( about );
 
       treeObj.position.y = -10;
       treeObj.position.x = 0;
+
       //treeObj.position.z = -3;
 
 
@@ -332,6 +413,8 @@
       light.material.uniforms.cubeMap.value = cubeCamera.renderTarget;
 
 
+
+      $("#info").hide();
 
 
     }
@@ -443,7 +526,11 @@
 
     function onLoad(){
       loaded ++;
-      if( loaded == neededToLoad ){ init(); animate(); }
+      if( loaded == neededToLoad ){ 
+        $("#text").remove();
+        init(); 
+        animate(); 
+      }
 
     }
 
