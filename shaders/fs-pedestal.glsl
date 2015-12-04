@@ -244,7 +244,7 @@ vec2 body( vec3 pos , out float baseID ){
 
   h =   he ;
 
-  float extra = .2 * abs(min(0.,pos.y)) * (1.5 + sin( 1.4 * time * (uPower * .1 + 1.) + pos.y ));
+  float extra = .2 * abs(min(0.,pos.y)) * (1.5 + sin( 1.4 * time + (uPower * .8 + 1.) + pos.y ));
   he = vec2( sdCappedCylinder( bent , vec2( 3.4 , 2.4 )  ) - extra  , 1. );
   h = smoothU( h ,  he , 6.5 );
 
