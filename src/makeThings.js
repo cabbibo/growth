@@ -477,8 +477,8 @@
       var mesh = new THREE.Mesh( geo , mat );
       
       mesh.position.x = 20;
-      mesh.position.z = 20;
-      mesh.position.y = 3.3;
+      mesh.position.z = -20;
+      mesh.position.y = 4.3;
 
       mesh.hoverOver = function(){
 
