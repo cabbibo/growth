@@ -518,7 +518,7 @@
 
         grain.playNote( ap );
 
-        $("#info").toggle();
+        $("#info").fadeToggle();
 
       }
 
